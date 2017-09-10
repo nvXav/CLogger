@@ -1,6 +1,5 @@
 #include <alloca.h>
 #include <stdlib.h>
-#include <stdio.h>
 #include <string.h>
 #include <time.h>
 
@@ -43,13 +42,13 @@ static char *get_time_string()
 
 static char *get_file_info(char *file_name, int line_num)
 {
-    static char file_info[128];
+    static char file_info[MAX_BUFLEN];
     char filename[strlen(file_name)];
     strcpy(filename, file_name);
 
     char *pch = strrchr(filename, '/');
 
-    snprintf(file_info, 128, "Line %d [%s]", line_num, pch + 1);
+    snprintf(file_info, MAX_BUFLEN, "Line %d [%s]", line_num, pch + 1);
     return file_info;
 }
 
@@ -78,24 +77,24 @@ static char* allocate_input(char *file_name, int lnnb, const char *fmt, const va
             {
             case 's':
                 tmpString = va_arg(args, char *);
-                snprintf(tmpChar, 128, "%s", tmpString);
+                snprintf(tmpChar, MAX_BUFLEN, "%s", tmpString);
                 strcat(buffer, tmpString);
 
                 break;
             case 'd':
                 tmpInt= va_arg(args, int);
-                snprintf(tmpChar, 128, "%d", tmpInt);
+                snprintf(tmpChar, MAX_BUFLEN, "%d", tmpInt);
                 strcat(buffer, tmpChar);
 
                 break;
             case 'f':
                 tmpDbl= va_arg(args, double);
-                snprintf(tmpChar, 128, "%f", tmpDbl);
+                snprintf(tmpChar, MAX_BUFLEN, "%f", tmpDbl);
                 strcat(buffer, tmpChar);
 
                 break;
             case '%':
-                snprintf(tmpChar, 128, "%c", fmt[i]);
+                snprintf(tmpChar, MAX_BUFLEN, "%c", fmt[i]);
                 strcat(buffer, tmpChar);
 
                 break;
@@ -116,19 +115,9 @@ static char* allocate_input(char *file_name, int lnnb, const char *fmt, const va
     /* Get output string */
     static char output[2 * MAX_BUFLEN];
     output[0] = 0;
-    snprintf(output, 2 * MAX_BUFLEN, "%s%s%s", file_info, time, buffer);
+    snprintf(output, 2 * MAX_BUFLEN, "%s%s%s%s", file_info, time, buffer, "\n");
 
     return output;
-}
-
-void save_log()
-{
-
-}
-
-void cancel_save_log()
-{
-
 }
 
 void log_print(char *file_name, int lnnb, const char *fmt, ...)
@@ -137,8 +126,15 @@ void log_print(char *file_name, int lnnb, const char *fmt, ...)
     va_start (args, fmt);
     char *input;
     input = allocate_input(file_name, lnnb, fmt, args);
+    char info[MAX_BUFLEN];
+    snprintf(info, MAX_BUFLEN, "%s%s", "Info: ", input);
     va_end(args);
-    printf(GREEN "%s" COLOR_RESET "\n", input);
+    printf(GREEN "%s" COLOR_RESET, info);
+
+    if (save)
+    {
+        save_log(info);
+    }
 }
 
 void log_warning(char *file_name, int lnnb, char *fmt, ...)
@@ -147,8 +143,15 @@ void log_warning(char *file_name, int lnnb, char *fmt, ...)
     va_start (args, fmt);
     char *input;
     input = allocate_input(file_name, lnnb, fmt, args);
+    char info[MAX_BUFLEN];
+    snprintf(info, MAX_BUFLEN, "%s%s", "Warning: ", input);
     va_end(args);
-    printf(YELLOW "%s" COLOR_RESET "\n", input);
+    printf(YELLOW "Warning: %s" COLOR_RESET, input);
+
+    if (save)
+    {
+        save_log(info);
+    }
 }
 
 void log_error(char *file_name, int lnnb, char *fmt, ...)
@@ -157,6 +160,66 @@ void log_error(char *file_name, int lnnb, char *fmt, ...)
     va_start (args, fmt);
     char *input;
     input = allocate_input(file_name, lnnb, fmt, args);
+    char info[MAX_BUFLEN];
+    snprintf(info, MAX_BUFLEN, "%s%s", "Error: ", input);
     va_end(args);
-    printf(RED "%s" COLOR_RESET "\n", input);
+    printf(RED "ERROR: %s" COLOR_RESET, input);
+
+    if (save)
+    {
+        save_log(info);
+    }
+}
+
+bool set_save_log(char *path, char *name)
+{
+    save = true;
+
+    if (strcmp(name, "") == 0)
+    {
+        g_name = "save_log.txt";
+    }
+    else
+    {
+        g_name = name;
+    }
+    g_path = path;
+
+}
+
+bool save_log(char *clog)
+{
+    /* Analyse file address*/
+    char file_path[MAX_BUFLEN];
+    if (strcmp(g_path, "") == 0)
+    {
+        snprintf(file_path, MAX_BUFLEN, "%s", g_name);
+    }
+    else
+    {
+        if (g_path[0] != '/')
+        {
+            if (g_path[0] != '~')
+            {
+                printf(RED "ERROR: Inaccurate address format of file: %s" COLOR_RESET "\n", g_path);
+                return false;
+            }
+        }
+        snprintf(file_path, MAX_BUFLEN, "%s/%s",g_path, g_name);
+    }
+
+    /* Save in a file */
+    char *cfile_path = file_path;
+    g_fp = fopen(cfile_path, "a+r");
+    if(!g_fp)
+    {
+        printf(RED "ERROR: Can not create or open file %s" COLOR_RESET "\n", g_name);
+        return false;
+    }
+
+    char log[MAX_BUFLEN];
+    snprintf(log, MAX_BUFLEN, "%s", "\n");
+    fwrite(clog, strlen(clog) + sizeof(char), 1, g_fp);
+
+    fclose(g_fp);
 }
