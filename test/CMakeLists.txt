@@ -1,3 +1,7 @@
+include_directories(
+    ${CMAKE_SOURCE_DIR}/src
+)
+
 set(HEADER
     ${CMAKE_SOURCE_DIR}/src/CLogger.h
 )
